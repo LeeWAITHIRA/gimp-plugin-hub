@@ -23,19 +23,18 @@ plug_in_binary = "hub"
 
 
 def patch_shebang(filepath):
-    """Replace first line with correct GIMP Python path."""
+    """Replace first line with standard python3 shebang."""
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
             lines = f.readlines()
         if lines and lines[0].startswith('#!'):
-            lines[0] = f'#!{GIMP_PYTHON}\n'
+            lines[0] = '#!/usr/bin/env python3\n'
         else:
-            lines.insert(0, f'#!{GIMP_PYTHON}\n')
+            lines.insert(0, '#!/usr/bin/env python3\n')
         with open(filepath, 'w', encoding='utf-8') as f:
             f.writelines(lines)
     except Exception:
         pass
-
 
 def fetch_registry():
     try:
