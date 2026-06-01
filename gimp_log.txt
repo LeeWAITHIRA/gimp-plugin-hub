@@ -5,4 +5,3 @@ GIMP-Error: Unable to run plug-in "gimpinator_ex.py"
 
 Failed to execute child process (No such file or directory)
 
-C:\Users\lee2\AppData\Local\Programs\GIMP 3\bin\gimp-3.2.exe: LibGimpBase-WARNING: gimp: gimp_wire_read(): unexpected EOF
