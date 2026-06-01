@@ -1,0 +1,32 @@
+{
+  "version": "1.0.0",
+  "updated": "2026-06-01",
+  "plugins": [
+    {
+      "id": "gimpinator-ex",
+      "name": "Gimpinator EX",
+      "description": "AI image generation inside GIMP powered by Stable Horde. Free, no API key needed.",
+      "author": "PCOW",
+      "version": "1.0.0",
+      "gimp_version": "3.x",
+      "tags": ["ai", "image-generation", "stable-diffusion"],
+      "license": "MIT",
+      "url": "https://github.com/PCOW/Gimpinator",
+      "download_url": "https://raw.githubusercontent.com/PCOW/Gimpinator/main/gimpinator_ex.py",
+      "install_path": "plug-ins"
+    },
+    {
+      "id": "dream-prompter",
+      "name": "Dream Prompter",
+      "description": "Google Gemini 2.5 Flash image generation inside GIMP. Requires Google API key.",
+      "author": "Josh Ellithorpe",
+      "version": "1.0.0",
+      "gimp_version": "3.x",
+      "tags": ["ai", "image-generation", "gemini"],
+      "license": "MIT",
+      "url": "https://github.com/joshellithorpe/dream-prompter",
+      "download_url": "https://raw.githubusercontent.com/joshellithorpe/dream-prompter/main/dream-prompter.py",
+      "install_path": "plug-ins"
+    }
+  ]
+}
