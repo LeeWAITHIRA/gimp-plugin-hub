@@ -13,6 +13,7 @@ import os
 import json
 import urllib.request
 import shutil
+import threading
 
 REGISTRY_URL = "https://raw.githubusercontent.com/LeeWAITHIRA/gimp-plugin-hub/main/registry/plugins.json"
 GIMP_PLUGINS_DIR = os.path.join(os.environ.get("APPDATA", ""), "GIMP", "3.2", "plug-ins")
@@ -38,8 +39,13 @@ def patch_shebang(filepath):
 
 
 def fetch_registry():
+    """Fetches the plugin registry with custom headers to prevent CDN timeouts."""
     try:
-        with urllib.request.urlopen(REGISTRY_URL, timeout=10) as response:
+        req = urllib.request.Request(
+            REGISTRY_URL,
+            headers={'User-Agent': 'Mozilla/5.0 (GIMP-Plugin-Hub/1.0; Python Plugin)'}
+        )
+        with urllib.request.urlopen(req, timeout=15) as response:
             data = json.loads(response.read().decode())
             return data.get("plugins", [])
     except Exception:
@@ -53,12 +59,20 @@ def get_plugin_folder(plugin):
 
 
 def install_plugin(plugin):
+    """Downloads files over a secure request stream with a 30-second window."""
     try:
         folder_name, filename = get_plugin_folder(plugin)
         plugin_dir = os.path.join(GIMP_PLUGINS_DIR, folder_name)
         os.makedirs(plugin_dir, exist_ok=True)
         dest = os.path.join(plugin_dir, filename)
-        urllib.request.urlretrieve(plugin["download_url"], dest)
+        
+        req = urllib.request.Request(
+            plugin["download_url"],
+            headers={'User-Agent': 'Mozilla/5.0 (GIMP-Plugin-Hub/1.0; Python Plugin)'}
+        )
+        with urllib.request.urlopen(req, timeout=30) as response, open(dest, 'wb') as out_file:
+            shutil.copyfileobj(response, out_file)
+            
         patch_shebang(dest)
         return True, f"✅ {plugin['name']} installed!\nRestart GIMP to use it."
     except Exception as e:
@@ -82,7 +96,7 @@ def is_installed(plugin):
     return os.path.exists(os.path.join(GIMP_PLUGINS_DIR, folder_name))
 
 
-def build_ui(plugins):
+def build_ui():
     GimpUi.init(plug_in_binary)
     win = Gtk.Window(title="GIMP Plugin Hub")
     win.set_default_size(640, 540)
@@ -112,23 +126,27 @@ def build_ui(plugins):
     scroll.add(plugin_list_box)
     main_box.pack_start(scroll, True, True, 0)
 
-    status_label = Gtk.Label(label="")
+    status_label = Gtk.Label(label="🔄 Fetching latest plugin registry...")
     status_label.set_line_wrap(True)
     status_label.set_justify(Gtk.Justification.CENTER)
     main_box.pack_start(status_label, False, False, 4)
+
+    all_plugins = []
 
     def render_plugins(filter_text=""):
         for child in plugin_list_box.get_children():
             plugin_list_box.remove(child)
 
         filtered = [
-            p for p in plugins
+            p for p in all_plugins
             if filter_text.lower() in p["name"].lower()
             or filter_text.lower() in p["description"].lower()
             or any(filter_text.lower() in t for t in p.get("tags", []))
-        ] if filter_text else plugins
+        ] if filter_text else all_plugins
 
-        if not filtered:
+        if not all_plugins and status_label.get_text().startswith("🔄"):
+            plugin_list_box.pack_start(Gtk.Label(label="Loading registry database... Please wait."), False, False, 20)
+        elif not filtered:
             plugin_list_box.pack_start(Gtk.Label(label="No plugins found."), False, False, 20)
         else:
             for plugin in filtered:
@@ -181,32 +199,50 @@ def build_ui(plugins):
     def on_action(plugin, do_install):
         if do_install:
             status_label.set_text(f"Installing {plugin['name']}...")
-            success, msg = install_plugin(plugin)
         else:
             status_label.set_text(f"Uninstalling {plugin['name']}...")
-            success, msg = uninstall_plugin(plugin)
-        status_label.set_text(msg)
-        render_plugins(search_entry.get_text())
+
+        def worker():
+            if do_install:
+                success, msg = install_plugin(plugin)
+            else:
+                success, msg = uninstall_plugin(plugin)
+            GLib.idle_add(lambda: finish_action(msg))
+
+        def finish_action(msg):
+            status_label.set_text(msg)
+            render_plugins(search_entry.get_text())
+            return False
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def load_registry_worker():
+        nonlocal all_plugins
+        plugins = fetch_registry()
+        
+        def apply_registry():
+            nonlocal all_plugins
+            if plugins:
+                all_plugins = plugins
+                status_label.set_text("Registry synchronized successfully.")
+            else:
+                status_label.set_text("❌ Failed to load registry. Verify your active internet connection.")
+            render_plugins(search_entry.get_text())
+            return False
+            
+        GLib.idle_add(apply_registry)
 
     search_entry.connect("changed", lambda e: render_plugins(e.get_text()))
     render_plugins()
     win.show_all()
+    
+    # Asynchronously fetches the repository list while the UI stays live
+    threading.Thread(target=load_registry_worker, daemon=True).start()
     Gtk.main()
 
 
 def hub_run(procedure, run_mode, image, drawables, config, data):
-    plugins = fetch_registry()
-    if not plugins:
-        GimpUi.init(plug_in_binary)
-        dialog = Gtk.MessageDialog(
-            message_type=Gtk.MessageType.ERROR,
-            buttons=Gtk.ButtonsType.OK,
-            text="Could not load plugin registry.\nCheck your internet connection."
-        )
-        dialog.run()
-        dialog.destroy()
-    else:
-        build_ui(plugins)
+    build_ui()
     return procedure.new_return_values(Gimp.PDBStatusType.SUCCESS, None)
 
 
