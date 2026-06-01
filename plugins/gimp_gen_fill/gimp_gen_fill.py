@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# GIMP Generative Fill - By LeeWAITHIRA
-# Photoshop-like generative fill powered by Stable Horde (free)
+# GIMP Plugin Hub & AI Generator - By LeeWAITHIRA
 # github.com/LeeWAITHIRA/gimp-plugin-hub
 
 import gi
@@ -13,230 +12,388 @@ import sys
 import os
 import json
 import urllib.request
-import tempfile
-import time
+import urllib.parse
+import shutil
+import threading
 
-HORDE_API     = "https://stablehorde.net/api/v2"
-HORDE_API_KEY = "0000000000"
+REGISTRY_URL = "https://raw.githubusercontent.com/LeeWAITHIRA/gimp-plugin-hub/main/registry/plugins.json"
+GIMP_PLUGINS_DIR = os.path.join(os.environ.get("APPDATA", ""), "GIMP", "3.2", "plug-ins")
+GIMP_PYTHON = os.path.join(os.path.dirname(sys.executable), "python.exe")
 
-plug_in_proc   = "plug-in-gimp-gen-fill"
-plug_in_binary = "gimp_gen_fill"
-
-
-def do_set_i18n(self, name):
-    return False
+plug_in_proc   = "plug-in-gimp-plugin-hub"
+plug_in_binary = "hub"
 
 
-def get_selection_bounds(image):
-    result = Gimp.Selection.bounds(image)
-    # returns (success, non_empty, x1, y1, x2, y2)
-    _, non_empty, x1, y1, x2, y2 = result
-    if not non_empty or (x2 - x1) < 4 or (y2 - y1) < 4:
-        return None
-    return x1, y1, x2 - x1, y2 - y1
-def submit_horde_job(prompt, width, height):
-    """Submit generation job to Stable Horde."""
-    w = max(64, (min(width,  512) // 64) * 64)
-    h = max(64, (min(height, 512) // 64) * 64)
-    payload = {
-        "prompt": prompt,
-        "params": {
-            "width": w,
-            "height": h,
-            "steps": 25,
-            "cfg_scale": 7.5,
-            "sampler_name": "k_euler_a",
-            "n": 1
-        },
-        "models": ["stable_diffusion"],
-        "r2": True
-    }
-    req = urllib.request.Request(
-        f"{HORDE_API}/generate/async",
-        data=json.dumps(payload).encode(),
-        headers={
-            "Content-Type": "application/json",
-            "apikey": HORDE_API_KEY
-        }
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read())["id"]
+def patch_shebang(filepath):
+    """Replace first line with correct GIMP Python path."""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        if lines and lines[0].startswith('#!'):
+            lines[0] = f'#!{GIMP_PYTHON}\n'
+        else:
+            lines.insert(0, f'#!{GIMP_PYTHON}\n')
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.writelines(lines)
+    except Exception:
+        pass
 
 
-def poll_horde_job(job_id, status_callback):
-    """Poll until job done, return image URL."""
-    for i in range(120):
-        time.sleep(3)
-        with urllib.request.urlopen(
-            f"{HORDE_API}/generate/check/{job_id}", timeout=10
-        ) as resp:
-            data = json.loads(resp.read())
-        qp = data.get('queue_position', '?')
-        wt = data.get('wait_time', '?')
-        status_callback(f"Generating... queue: {qp} | wait: ~{wt}s")
-        if data.get("done"):
-            break
-
-    with urllib.request.urlopen(
-        f"{HORDE_API}/generate/status/{job_id}", timeout=10
-    ) as resp:
-        result = json.loads(resp.read())
-
-    generations = result.get("generations", [])
-    if not generations:
-        return None
-    return generations[0].get("img")
+def fetch_registry():
+    """Fetches the plugin registry with custom headers to prevent CDN timeouts."""
+    try:
+        req = urllib.request.Request(
+            REGISTRY_URL,
+            headers={'User-Agent': 'Mozilla/5.0 (GIMP-Plugin-Hub/1.0; Python Plugin)'}
+        )
+        with urllib.request.urlopen(req, timeout=15) as response:
+            data = json.loads(response.read().decode())
+            return data.get("plugins", [])
+    except Exception:
+        return []
 
 
-def download_image_to_layer(image, img_url, x, y, w, h):
-    """Download result and paste as new layer."""
-    with tempfile.NamedTemporaryFile(suffix=".webp", delete=False) as f:
-        tmppath = f.name
-    urllib.request.urlretrieve(img_url, tmppath)
-
-    tmp_image = Gimp.file_load(
-        Gimp.RunMode.NONINTERACTIVE,
-        Gimp.get_default_comment(),
-        tmppath
-    )
-    tmp_drawable = tmp_image.get_active_drawable()
-    tmp_layer = Gimp.Layer.new_from_drawable(tmp_drawable, image)
-    tmp_layer.set_name("✨ Gen Fill")
-    image.insert_layer(tmp_layer, None, -1)
-    tmp_layer.scale(w, h, False)
-    tmp_layer.set_offsets(x, y)
-
-    os.unlink(tmppath)
-    tmp_image.delete()
-    return tmp_layer
+def get_plugin_folder(plugin):
+    """Folder name must match .py filename exactly for GIMP 3."""
+    filename = plugin["download_url"].split("/")[-1]
+    return filename.replace(".py", ""), filename
 
 
-def show_dialog(procedure, image, drawable):
+def install_plugin(plugin):
+    """Downloads files over a secure request stream with custom headers."""
+    try:
+        folder_name, filename = get_plugin_folder(plugin)
+        plugin_dir = os.path.join(GIMP_PLUGINS_DIR, folder_name)
+        os.makedirs(plugin_dir, exist_ok=True)
+        dest = os.path.join(plugin_dir, filename)
+        
+        req = urllib.request.Request(
+            plugin["download_url"],
+            headers={'User-Agent': 'Mozilla/5.0 (GIMP-Plugin-Hub/1.0; Python Plugin)'}
+        )
+        with urllib.request.urlopen(req, timeout=30) as response, open(dest, 'wb') as out_file:
+            shutil.copyfileobj(response, out_file)
+            
+        patch_shebang(dest)
+        return True, f"✅ {plugin['name']} installed!\nRestart GIMP to use it."
+    except Exception as e:
+        return False, f"❌ Install failed: {str(e)}"
+
+
+def uninstall_plugin(plugin):
+    try:
+        folder_name, _ = get_plugin_folder(plugin)
+        plugin_dir = os.path.join(GIMP_PLUGINS_DIR, folder_name)
+        if os.path.exists(plugin_dir):
+            shutil.rmtree(plugin_dir)
+            return True, f"🗑️ {plugin['name']} uninstalled.\nRestart GIMP to apply."
+        return False, "Plugin not found on disk."
+    except Exception as e:
+        return False, str(e)
+
+
+def is_installed(plugin):
+    folder_name, _ = get_plugin_folder(plugin)
+    return os.path.exists(os.path.join(GIMP_PLUGINS_DIR, folder_name))
+
+
+def build_ui():
     GimpUi.init(plug_in_binary)
+    win = Gtk.Window(title="GIMP Plugin Hub & AI Suite")
+    win.set_default_size(700, 600)
+    win.set_border_width(12)
+    win.connect("destroy", Gtk.main_quit)
 
-    dialog = Gtk.Dialog(title="✨ Generative Fill")
-    dialog.set_default_size(440, 260)
-    dialog.set_border_width(12)
+    # Main structural Layout Wrapper
+    root_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    win.add(root_box)
 
-    content = dialog.get_content_area()
-    content.set_spacing(10)
+    # Global Title Header
+    header = Gtk.Label()
+    header.set_markup("<big><b>🧩 GIMP Creator Toolkit</b></big>\n<small>Plugin Management & Generative AI Hub</small>")
+    header.set_justify(Gtk.Justification.CENTER)
+    root_box.pack_start(header, False, False, 6)
 
-    info = Gtk.Label()
-    info.set_markup("<big><b>✨ Generative Fill</b></big>\n<small>Powered by Stable Horde — 100% free, no account needed</small>")
-    info.set_justify(Gtk.Justification.CENTER)
-    content.pack_start(info, False, False, 0)
+    # Notebook Container for separating Hub and AI features
+    notebook = Gtk.Notebook()
+    root_box.pack_start(notebook, True, True, 0)
 
-    sep = Gtk.Separator()
-    content.pack_start(sep, False, False, 0)
+    # ==========================================
+    # TAB 1: PLUGIN HUB CONTAINER SETUP
+    # ==========================================
+    hub_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    hub_page.set_border_width(10)
 
-    prompt_label = Gtk.Label(label="Describe what to generate in the selected area:")
-    prompt_label.set_halign(Gtk.Align.START)
-    content.pack_start(prompt_label, False, False, 0)
+    search_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+    search_label = Gtk.Label(label="🔍 Search:")
+    search_entry = Gtk.Entry()
+    search_entry.set_placeholder_text("Search by name, tag, or description...")
+    search_box.pack_start(search_label, False, False, 0)
+    search_box.pack_start(search_entry, True, True, 0)
+    hub_page.pack_start(search_box, False, False, 0)
 
-    prompt_entry = Gtk.Entry()
-    prompt_entry.set_placeholder_text("e.g. a blue sky with clouds, photorealistic")
-    content.pack_start(prompt_entry, False, False, 0)
+    scroll = Gtk.ScrolledWindow()
+    scroll.set_min_content_height(340)
+    scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    plugin_list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    scroll.add(plugin_list_box)
+    hub_page.pack_start(scroll, True, True, 0)
 
-    status_label = Gtk.Label(label="💡 Tip: Make a selection first using the Rectangle or Lasso tool.")
+    status_label = Gtk.Label(label="🔄 Synchronization active: Loading online database...")
     status_label.set_line_wrap(True)
     status_label.set_justify(Gtk.Justification.CENTER)
-    content.pack_start(status_label, False, False, 0)
+    hub_page.pack_start(status_label, False, False, 4)
 
-    btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-    btn_box.set_halign(Gtk.Align.END)
-    cancel_btn = Gtk.Button(label="Cancel")
-    generate_btn = Gtk.Button(label="✨ Generate")
-    btn_box.pack_start(cancel_btn, False, False, 0)
-    btn_box.pack_start(generate_btn, False, False, 0)
-    content.pack_start(btn_box, False, False, 8)
+    notebook.append_page(hub_page, Gtk.Label(label="🧩 Plugin Manager"))
 
-    dialog.show_all()
+    # ==========================================
+    # TAB 2: AI GENERATOR CONTAINER SETUP
+    # ==========================================
+    ai_page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+    ai_page.set_border_width(14)
 
-    def on_cancel(b):
-        dialog.destroy()
-        Gtk.main_quit()
+    prompt_label = Gtk.Label(label="<b>Describe the image you want to generate:</b>")
+    prompt_label.set_use_markup(True)
+    prompt_label.set_halign(Gtk.Align.START)
+    ai_page.pack_start(prompt_label, False, False, 0)
 
-    def on_generate(b):
+    prompt_entry = Gtk.Entry()
+    prompt_entry.set_placeholder_text("e.g., A surreal landscape with neon clouds, cinematic lighting, 8k resolution...")
+    ai_page.pack_start(prompt_entry, False, False, 0)
+
+    # Size adjustment configurations
+    dim_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=20)
+    
+    width_lbl = Gtk.Label(label="Width:")
+    width_spin = Gtk.SpinButton.new_with_range(256, 2048, 64)
+    width_spin.set_value(1024)
+    dim_box.pack_start(width_lbl, False, False, 0)
+    dim_box.pack_start(width_spin, False, False, 0)
+
+    height_lbl = Gtk.Label(label="Height:")
+    height_spin = Gtk.SpinButton.new_with_range(256, 2048, 64)
+    height_spin.set_value(1024)
+    dim_box.pack_start(height_lbl, False, False, 0)
+    dim_box.pack_start(height_spin, False, False, 0)
+
+    ai_page.pack_start(dim_box, False, False, 4)
+
+    # Model engine preferences selector
+    model_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+    model_lbl = Gtk.Label(label="AI Model Engine:")
+    model_combo = Gtk.ComboBoxText()
+    model_combo.append_text("flux")
+    model_combo.append_text("turbo")
+    model_combo.set_active(0)
+    model_box.pack_start(model_lbl, False, False, 0)
+    model_box.pack_start(model_combo, False, False, 0)
+    ai_page.pack_start(model_box, False, False, 0)
+
+    generate_btn = Gtk.Button(label="✨ Generate AI Image")
+    ai_page.pack_start(generate_btn, False, False, 10)
+
+    ai_status_label = Gtk.Label(label="Ready to generate artwork pipeline. No active tasks.")
+    ai_status_label.set_line_wrap(True)
+    ai_status_label.set_justify(Gtk.Justification.CENTER)
+    ai_page.pack_start(ai_status_label, False, False, 4)
+
+    notebook.append_page(ai_page, Gtk.Label(label="✨ AI Text-to-Image"))
+
+    # Global UI variable caching
+    all_plugins = []
+
+    # ==========================================
+    # LOGIC COMPONENT: PLUGIN MANAGER METHODS
+    # ==========================================
+    def render_plugins(filter_text=""):
+        for child in plugin_list_box.get_children():
+            plugin_list_box.remove(child)
+
+        filtered = [
+            p for p in all_plugins
+            if filter_text.lower() in p["name"].lower()
+            or filter_text.lower() in p["description"].lower()
+            or any(filter_text.lower() in t for t in p.get("tags", []))
+        ] if filter_text else all_plugins
+
+        if not all_plugins and status_label.get_text().startswith("🔄"):
+            plugin_list_box.pack_start(Gtk.Label(label="Loading external database asset..."), False, False, 20)
+        elif not filtered:
+            plugin_list_box.pack_start(Gtk.Label(label="No plugins found matching criteria."), False, False, 20)
+        else:
+            for plugin in filtered:
+                card = Gtk.Frame()
+                card_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+                card_box.set_border_width(10)
+                card.add(card_box)
+
+                name_label = Gtk.Label()
+                name_label.set_markup(f"<b>{plugin['name']}</b>  <small>v{plugin['version']} · GIMP {plugin['gimp_version']}</small>")
+                name_label.set_halign(Gtk.Align.START)
+                card_box.pack_start(name_label, False, False, 0)
+
+                desc_label = Gtk.Label(label=plugin["description"])
+                desc_label.set_line_wrap(True)
+                desc_label.set_halign(Gtk.Align.START)
+                card_box.pack_start(desc_label, False, False, 0)
+
+                tags = "  ".join([f"#{t}" for t in plugin.get("tags", [])])
+                tags_label = Gtk.Label()
+                tags_label.set_markup(f"<small><i>{tags}</i></small>")
+                tags_label.set_halign(Gtk.Align.START)
+                card_box.pack_start(tags_label, False, False, 0)
+
+                meta_label = Gtk.Label()
+                meta_label.set_markup(f"<small>by {plugin['author']} · {plugin['license']}</small>")
+                meta_label.set_halign(Gtk.Align.START)
+                card_box.pack_start(meta_label, False, False, 0)
+
+                btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+                card_box.pack_start(btn_box, False, False, 4)
+
+                installed = is_installed(plugin)
+                if installed:
+                    badge = Gtk.Label()
+                    badge.set_markup("<small><b>✅ Installed</b></small>")
+                    btn_box.pack_start(badge, False, False, 0)
+                    uninstall_btn = Gtk.Button(label="Uninstall")
+                    uninstall_btn.connect("clicked", lambda b, p=plugin: on_action(p, False))
+                    btn_box.pack_end(uninstall_btn, False, False, 0)
+                else:
+                    install_btn = Gtk.Button(label="Install")
+                    install_btn.connect("clicked", lambda b, p=plugin: on_action(p, True))
+                    btn_box.pack_end(install_btn, False, False, 0)
+
+                plugin_list_box.pack_start(card, False, False, 0)
+
+        plugin_list_box.show_all()
+
+    def on_action(plugin, do_install):
+        if do_install:
+            status_label.set_text(f"Installing {plugin['name']}...")
+        else:
+            status_label.set_text(f"Uninstalling {plugin['name']}...")
+
+        def worker():
+            if do_install:
+                success, msg = install_plugin(plugin)
+            else:
+                success, msg = uninstall_plugin(plugin)
+            GLib.idle_add(lambda: finish_action(msg))
+
+        def finish_action(msg):
+            status_label.set_text(msg)
+            render_plugins(search_entry.get_text())
+            return False
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def load_registry_worker():
+        nonlocal all_plugins
+        plugins = fetch_registry()
+        
+        def apply_registry():
+            nonlocal all_plugins
+            if plugins:
+                all_plugins = plugins
+                status_label.set_text("Registry loaded cleanly.")
+            else:
+                status_label.set_text("❌ Connection failed. Check internet access.")
+            render_plugins(search_entry.get_text())
+            return False
+            
+        GLib.idle_add(apply_registry)
+
+    # ==========================================
+    # LOGIC COMPONENT: GENERATIVE AI ENGINE
+    # ==========================================
+    def run_ai_generation(widget):
         prompt = prompt_entry.get_text().strip()
         if not prompt:
-            status_label.set_text("⚠️ Please enter a prompt first.")
+            ai_status_label.set_text("❌ Generation aborted: Prompt field cannot be empty.")
             return
 
-        bounds = get_selection_bounds(image)
-        if not bounds:
-            status_label.set_text("⚠️ No selection found. Draw a rectangle or lasso selection first.")
-            return
+        w = int(width_spin.get_value())
+        h = int(height_spin.get_value())
+        model = model_combo.get_active_text()
 
-        x, y, w, h = bounds
         generate_btn.set_sensitive(False)
-        cancel_btn.set_sensitive(False)
-        status_label.set_text(f"Selection: {w}x{h}px at ({x},{y})")
+        ai_status_label.set_text("🚀 Connecting to Pollinations cluster... Rendering image stream...")
 
-        def update_status(msg):
-            status_label.set_text(msg)
-            while Gtk.events_pending():
-                Gtk.main_iteration()
+        def ai_worker():
+            try:
+                # Sanitize the input prompt string into safely structured query components
+                encoded_prompt = urllib.parse.quote(prompt)
+                target_url = f"https://image.pollinations.ai/p/{encoded_prompt}?width={w}&height={h}&model={model}&nologo=true"
+                
+                req = urllib.request.Request(
+                    target_url,
+                    headers={'User-Agent': 'Mozilla/5.0 (GIMP-AI-Suite/1.0; GIMP Plugin)'}
+                )
+                
+                # Determine default save destination directory
+                user_home = os.path.expanduser("~")
+                save_dir = os.path.join(user_home, "Pictures")
+                if not os.path.exists(save_dir):
+                    save_dir = user_home
+                
+                out_filename = f"ai_gen_{int(GLib.get_real_time() / 1000000)}.png"
+                destination_path = os.path.join(save_dir, out_filename)
 
-        try:
-            update_status("📤 Submitting to Stable Horde...")
-            job_id = submit_horde_job(prompt, w, h)
-            update_status(f"✅ Job submitted! Waiting for worker...")
+                # Connect directly to stream bytes straight down into a clean file output
+                with urllib.request.urlopen(req, timeout=45) as response, open(destination_path, 'wb') as out_file:
+                    shutil.copyfileobj(response, out_file)
 
-            img_url = poll_horde_job(job_id, update_status)
+                msg = f"🎉 Success! Image generated and exported to:\n{destination_path}"
+                GLib.idle_add(lambda: finalize_ai(True, msg))
+            except Exception as error:
+                GLib.idle_add(lambda: finalize_ai(False, f"❌ Cloud render engine timed out: {str(error)}"))
 
-            if not img_url:
-                update_status("❌ Generation failed — no result returned. Try again.")
-                generate_btn.set_sensitive(True)
-                cancel_btn.set_sensitive(True)
-                return
-
-            update_status("⬇️ Downloading result...")
-            image.undo_group_start()
-            download_image_to_layer(image, img_url, x, y, w, h)
-            image.undo_group_end()
-            Gimp.displays_flush()
-            update_status("✅ Done! Check the new '✨ Gen Fill' layer in your layers panel.")
-
-        except Exception as e:
-            update_status(f"❌ Error: {str(e)}")
+        def finalize_ai(success, outcome_text):
+            ai_status_label.set_text(outcome_text)
             generate_btn.set_sensitive(True)
-            cancel_btn.set_sensitive(True)
+            return False
 
-    cancel_btn.connect("clicked", on_cancel)
-    generate_btn.connect("clicked", on_generate)
+        threading.Thread(target=ai_worker, daemon=True).start()
+
+    # Event binding configurations
+    search_entry.connect("changed", lambda e: render_plugins(e.get_text()))
+    generate_btn.connect("clicked", run_ai_generation)
+    
+    render_plugins()
+    win.show_all()
+    
+    # Asynchronously loads the external hub plugin library metadata
+    threading.Thread(target=load_registry_worker, daemon=True).start()
     Gtk.main()
 
 
-def gen_fill_run(procedure, run_mode, image, drawables, config, data):
-    drawable = drawables[0] if drawables else image.get_active_drawable()
-    show_dialog(procedure, image, drawable)
+def hub_run(procedure, run_mode, image, drawables, config, data):
+    build_ui()
     return procedure.new_return_values(Gimp.PDBStatusType.SUCCESS, None)
 
 
-class GenFill(Gimp.PlugIn):
+class PluginHub(Gimp.PlugIn):
     def do_query_procedures(self):
         return [plug_in_proc]
 
-    def do_set_i18n(self, name):
-        return False
-
     def do_create_procedure(self, name):
         procedure = Gimp.ImageProcedure.new(
-            self, name, Gimp.PDBProcType.PLUGIN, gen_fill_run, None
+            self, name, Gimp.PDBProcType.PLUGIN, hub_run, None
         )
         procedure.set_sensitivity_mask(
             Gimp.ProcedureSensitivityMask.DRAWABLE |
             Gimp.ProcedureSensitivityMask.NO_DRAWABLES
         )
-        procedure.set_menu_label("✨ Generative Fill")
+        procedure.set_menu_label("Plugin Hub & AI Suite")
         procedure.add_menu_path("<Image>/Filters")
         procedure.set_documentation(
-            "AI Generative Fill powered by Stable Horde",
-            "Select an area, type a prompt, generate AI content",
+            "Browse assets and execute AI tasks inside GIMP",
+            "GIMP Plugin Hub & AI Suite by LeeWAITHIRA",
             None
         )
         procedure.set_attribution("LeeWAITHIRA", "LeeWAITHIRA", "2026")
         return procedure
 
 
-Gimp.main(GenFill.__gtype__, sys.argv)
+Gimp.main(PluginHub.__gtype__, sys.argv)
