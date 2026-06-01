@@ -26,7 +26,8 @@ plug_in_binary = "gimp_gen_fill"
 
 
 def get_selection_bounds(image):
-    exists, x1, y1, x2, y2 = image.get_selection_bounds()
+    selection = image.get_selection()
+    exists, x1, y1, x2, y2 = selection.bounds(image)
     if not exists or (x2 - x1) < 4 or (y2 - y1) < 4:
         return None
     return x1, y1, x2 - x1, y2 - y1
