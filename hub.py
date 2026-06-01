@@ -164,6 +164,45 @@ def is_installed(plugin):
     return os.path.exists(os.path.join(GIMP_PLUGINS_DIR, folder_name))
 
 
+def get_icon_for_plugin(plugin_name, tags=None):
+    """Get appropriate icon based on plugin name or tags."""
+    tags = tags or []
+    icon_map = {
+        # Common plugin names
+        "gimpinator": "sparks",
+        "generative": "sparkles",
+        "fill": "format-fill-color",
+        "blur": "blur",
+        "sharpen": "image-sharpen",
+        "enhance": "image-enhance",
+        "distort": "distort",
+        "light": "lights-off",
+        "noise": "noise",
+        "edge": "edge-detect",
+        "filter": "funnel",
+        "effect": "application-x-addon",
+        "ai": "sparkles",
+        "neural": "brain",
+        "ml": "application-x-addon",
+    }
+    
+    # Check plugin name
+    plugin_lower = plugin_name.lower()
+    for key, icon in icon_map.items():
+        if key in plugin_lower:
+            return icon
+    
+    # Check tags
+    for tag in tags:
+        tag_lower = tag.lower()
+        for key, icon in icon_map.items():
+            if key in tag_lower:
+                return icon
+    
+    # Default icon for plugins
+    return "application-x-addon"
+
+
 def build_ui(plugins):
     """Build and display the main UI with Registry and Custom URL tabs."""
     GimpUi.init(plug_in_binary)
@@ -255,7 +294,7 @@ def build_ui(plugins):
     notebook.append_page(custom_box, Gtk.Label(label="🔗 Custom URL"))
 
     def render_plugins(filter_text=""):
-        """Render filtered plugin list."""
+        """Render filtered plugin list with icons."""
         for child in plugin_list_box.get_children():
             plugin_list_box.remove(child)
 
@@ -275,10 +314,25 @@ def build_ui(plugins):
                 card_box.set_border_width(10)
                 card.add(card_box)
 
+                # Plugin name header with icon
+                name_header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+                
+                # Get icon for plugin
+                icon_name = get_icon_for_plugin(plugin['name'], plugin.get("tags", []))
+                try:
+                    icon = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.BUTTON)
+                    name_header_box.pack_start(icon, False, False, 0)
+                except:
+                    # Fallback if icon not found
+                    icon = Gtk.Image.new_from_icon_name("application-x-addon", Gtk.IconSize.BUTTON)
+                    name_header_box.pack_start(icon, False, False, 0)
+                
                 name_label = Gtk.Label()
                 name_label.set_markup(f"<b>{plugin['name']}</b>  <small>v{plugin['version']} · GIMP {plugin['gimp_version']}</small>")
                 name_label.set_halign(Gtk.Align.START)
-                card_box.pack_start(name_label, False, False, 0)
+                name_header_box.pack_start(name_label, False, False, 0)
+                
+                card_box.pack_start(name_header_box, False, False, 0)
 
                 desc_label = Gtk.Label(label=plugin["description"])
                 desc_label.set_line_wrap(True)
