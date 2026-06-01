@@ -1,0 +1,8 @@
+Non-native shell detected, GIMP may behave unexpectedly on Unix shells in Windows.
+set device 'System Aggregated Pointer' to mode: disabled
+GIMP-Error: Unable to run plug-in "gimpinator_ex.py"
+(C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimpinator_ex\gimpinator_ex.py)
+
+Failed to execute child process (No such file or directory)
+
+C:\Users\lee2\AppData\Local\Programs\GIMP 3\bin\gimp-3.2.exe: LibGimpBase-WARNING: gimp: gimp_wire_read(): unexpected EOF
