@@ -16,16 +16,16 @@
       "install_path": "plug-ins"
     },
     {
-      "id": "dream-prompter",
-      "name": "Dream Prompter",
-      "description": "Google Gemini 2.5 Flash image generation inside GIMP. Requires Google API key.",
-      "author": "Josh Ellithorpe",
+      "id": "gimp-gen-fill",
+      "name": "✨ Generative Fill",
+      "description": "Photoshop-like generative fill for GIMP. Select an area, type a prompt, AI fills it. Free via Stable Horde.",
+      "author": "LeeWAITHIRA",
       "version": "1.0.0",
       "gimp_version": "3.x",
-      "tags": ["ai", "image-generation", "gemini"],
+      "tags": ["ai", "generative-fill", "stable-diffusion", "inpainting"],
       "license": "MIT",
-      "url": "https://github.com/joshellithorpe/dream-prompter",
-      "download_url": "https://raw.githubusercontent.com/joshellithorpe/dream-prompter/main/dream-prompter.py",
+      "url": "https://github.com/LeeWAITHIRA/gimp-plugin-hub",
+      "download_url": "https://raw.githubusercontent.com/LeeWAITHIRA/gimp-plugin-hub/main/plugins/gimp_gen_fill/gimp_gen_fill.py",
       "install_path": "plug-ins"
     }
   ]
