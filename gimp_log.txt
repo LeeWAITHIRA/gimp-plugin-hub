@@ -1,0 +1,14 @@
+Non-native shell detected, GIMP may behave unexpectedly on Unix shells in Windows.
+set device 'System Aggregated Pointer' to mode: disabled
+GIMP-Error: Unable to run plug-in "gimpinator_ex.py"
+(C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimpinator_ex\gimpinator_ex.py)
+
+Failed to execute child process (No such file or directory)
+
+[plug-in-gimp-plugin-hub] The catalog directory does not exist: C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\hub\locale
+[plug-in-gimp-plugin-hub] Override method set_i18n() for the plug-in to customize or disable localization.
+[plug-in-gimp-plugin-hub] Localization disabled
+[plug-in-gimp-plugin-hub] The catalog directory does not exist: C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\hub\locale
+[plug-in-gimp-plugin-hub] Override method set_i18n() for the plug-in to customize or disable localization.
+[plug-in-gimp-plugin-hub] Localization disabled
+C:\Users\lee2\AppData\Local\Programs\GIMP 3\bin\gimp-3.2.exe: LibGimpBase-WARNING: gimp: gimp_wire_read(): unexpected EOF

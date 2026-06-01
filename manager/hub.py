@@ -16,59 +16,87 @@ import shutil
 
 REGISTRY_URL = "https://raw.githubusercontent.com/LeeWAITHIRA/gimp-plugin-hub/main/registry/plugins.json"
 GIMP_PLUGINS_DIR = os.path.join(os.environ.get("APPDATA", ""), "GIMP", "3.2", "plug-ins")
+GIMP_PYTHON = os.path.join(os.path.dirname(sys.executable), "python.exe")
 
 plug_in_proc   = "plug-in-gimp-plugin-hub"
 plug_in_binary = "hub"
+
+
+def patch_shebang(filepath):
+    """Replace first line with correct GIMP Python path."""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        if lines and lines[0].startswith('#!'):
+            lines[0] = f'#!{GIMP_PYTHON}\n'
+        else:
+            lines.insert(0, f'#!{GIMP_PYTHON}\n')
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.writelines(lines)
+    except Exception:
+        pass
+
 
 def fetch_registry():
     try:
         with urllib.request.urlopen(REGISTRY_URL, timeout=10) as response:
             data = json.loads(response.read().decode())
             return data.get("plugins", [])
-    except Exception as e:
+    except Exception:
         return []
+
+
+def get_plugin_folder(plugin):
+    """Folder name must match .py filename exactly for GIMP 3."""
+    filename = plugin["download_url"].split("/")[-1]
+    return filename.replace(".py", ""), filename
+
 
 def install_plugin(plugin):
     try:
-        plugin_dir = os.path.join(GIMP_PLUGINS_DIR, plugin["id"])
+        folder_name, filename = get_plugin_folder(plugin)
+        plugin_dir = os.path.join(GIMP_PLUGINS_DIR, folder_name)
         os.makedirs(plugin_dir, exist_ok=True)
-        filename = plugin["download_url"].split("/")[-1]
         dest = os.path.join(plugin_dir, filename)
         urllib.request.urlretrieve(plugin["download_url"], dest)
-        return True, f"{plugin['name']} installed!\nRestart GIMP to use it."
+        patch_shebang(dest)
+        return True, f"✅ {plugin['name']} installed!\nRestart GIMP to use it."
     except Exception as e:
-        return False, str(e)
+        return False, f"❌ Install failed: {str(e)}"
+
 
 def uninstall_plugin(plugin):
     try:
-        plugin_dir = os.path.join(GIMP_PLUGINS_DIR, plugin["id"])
+        folder_name, _ = get_plugin_folder(plugin)
+        plugin_dir = os.path.join(GIMP_PLUGINS_DIR, folder_name)
         if os.path.exists(plugin_dir):
             shutil.rmtree(plugin_dir)
-            return True, f"{plugin['name']} uninstalled.\nRestart GIMP to apply."
+            return True, f"🗑️ {plugin['name']} uninstalled.\nRestart GIMP to apply."
         return False, "Plugin not found on disk."
     except Exception as e:
         return False, str(e)
 
+
 def is_installed(plugin):
-    return os.path.exists(os.path.join(GIMP_PLUGINS_DIR, plugin["id"]))
+    folder_name, _ = get_plugin_folder(plugin)
+    return os.path.exists(os.path.join(GIMP_PLUGINS_DIR, folder_name))
+
 
 def build_ui(plugins):
     GimpUi.init(plug_in_binary)
     win = Gtk.Window(title="GIMP Plugin Hub")
-    win.set_default_size(620, 520)
+    win.set_default_size(640, 540)
     win.set_border_width(12)
     win.connect("destroy", Gtk.main_quit)
 
     main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     win.add(main_box)
 
-    # Header
     header = Gtk.Label()
     header.set_markup("<big><b>🧩 GIMP Plugin Hub</b></big>\n<small>by LeeWAITHIRA · github.com/LeeWAITHIRA/gimp-plugin-hub</small>")
     header.set_justify(Gtk.Justification.CENTER)
     main_box.pack_start(header, False, False, 8)
 
-    # Search
     search_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
     search_label = Gtk.Label(label="🔍 Search:")
     search_entry = Gtk.Entry()
@@ -77,15 +105,13 @@ def build_ui(plugins):
     search_box.pack_start(search_entry, True, True, 0)
     main_box.pack_start(search_box, False, False, 0)
 
-    # Plugin list
     scroll = Gtk.ScrolledWindow()
-    scroll.set_min_content_height(320)
+    scroll.set_min_content_height(340)
     scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
     plugin_list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
     scroll.add(plugin_list_box)
     main_box.pack_start(scroll, True, True, 0)
 
-    # Status
     status_label = Gtk.Label(label="")
     status_label.set_line_wrap(True)
     status_label.set_justify(Gtk.Justification.CENTER)
@@ -103,8 +129,7 @@ def build_ui(plugins):
         ] if filter_text else plugins
 
         if not filtered:
-            empty = Gtk.Label(label="No plugins found.")
-            plugin_list_box.pack_start(empty, False, False, 20)
+            plugin_list_box.pack_start(Gtk.Label(label="No plugins found."), False, False, 20)
         else:
             for plugin in filtered:
                 card = Gtk.Frame()
@@ -122,8 +147,8 @@ def build_ui(plugins):
                 desc_label.set_halign(Gtk.Align.START)
                 card_box.pack_start(desc_label, False, False, 0)
 
-                tags_label = Gtk.Label()
                 tags = "  ".join([f"#{t}" for t in plugin.get("tags", [])])
+                tags_label = Gtk.Label()
                 tags_label.set_markup(f"<small><i>{tags}</i></small>")
                 tags_label.set_halign(Gtk.Align.START)
                 card_box.pack_start(tags_label, False, False, 0)
@@ -176,7 +201,7 @@ def hub_run(procedure, run_mode, image, drawables, config, data):
         dialog = Gtk.MessageDialog(
             message_type=Gtk.MessageType.ERROR,
             buttons=Gtk.ButtonsType.OK,
-            text="Could not load plugin registry. Check your internet connection."
+            text="Could not load plugin registry.\nCheck your internet connection."
         )
         dialog.run()
         dialog.destroy()
