@@ -28,13 +28,12 @@ def do_set_i18n(self, name):
 
 
 def get_selection_bounds(image):
-    """Get selection bounds using correct GIMP 3 API."""
-    non_empty, x1, y1, x2, y2 = Gimp.Selection.bounds(image)
+    result = Gimp.Selection.bounds(image)
+    # returns (success, non_empty, x1, y1, x2, y2)
+    _, non_empty, x1, y1, x2, y2 = result
     if not non_empty or (x2 - x1) < 4 or (y2 - y1) < 4:
         return None
     return x1, y1, x2 - x1, y2 - y1
-
-
 def submit_horde_job(prompt, width, height):
     """Submit generation job to Stable Horde."""
     w = max(64, (min(width,  512) // 64) * 64)

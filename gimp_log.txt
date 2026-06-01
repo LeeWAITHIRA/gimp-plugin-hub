@@ -1,37 +1,11 @@
 Non-native shell detected, GIMP may behave unexpectedly on Unix shells in Windows.
 set device 'System Aggregated Pointer' to mode: disabled
-[plug-in-gimp-gen-fill] The catalog directory does not exist: C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\locale
-[plug-in-gimp-gen-fill] Override method set_i18n() for the plug-in to customize or disable localization.
-[plug-in-gimp-gen-fill] Localization disabled
 GIMP-Error: Unable to run plug-in "gimpinator_ex.py"
 (C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimpinator_ex\gimpinator_ex.py)
 
 Failed to execute child process (No such file or directory)
 
-[plug-in-gimp-gen-fill] The catalog directory does not exist: C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\locale
-[plug-in-gimp-gen-fill] Override method set_i18n() for the plug-in to customize or disable localization.
-[plug-in-gimp-gen-fill] Localization disabled
-[plug-in-gimp-gen-fill] The catalog directory does not exist: C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\locale
-[plug-in-gimp-gen-fill] Override method set_i18n() for the plug-in to customize or disable localization.
-[plug-in-gimp-gen-fill] Localization disabled
-Traceback (most recent call last):
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 177, in on_generate
-    bounds = get_selection_bounds(image)
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 30, in get_selection_bounds
-    exists, x1, y1, x2, y2 = selection.bounds(image)
-    ^^^^^^^^^^^^^^^^^^^^^^
-ValueError: too many values to unpack (expected 5)
-Traceback (most recent call last):
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 177, in on_generate
-    bounds = get_selection_bounds(image)
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 30, in get_selection_bounds
-    exists, x1, y1, x2, y2 = selection.bounds(image)
-    ^^^^^^^^^^^^^^^^^^^^^^
-ValueError: too many values to unpack (expected 5)
-Traceback (most recent call last):
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 177, in on_generate
-    bounds = get_selection_bounds(image)
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 30, in get_selection_bounds
-    exists, x1, y1, x2, y2 = selection.bounds(image)
-    ^^^^^^^^^^^^^^^^^^^^^^
-ValueError: too many values to unpack (expected 5)
+BOUNDS: (True, non_empty=True, x1=420, y1=162, x2=864, y2=546) LEN: 6
+BOUNDS: (True, non_empty=True, x1=0, y1=0, x2=1920, y2=1080) LEN: 6
+BOUNDS: (True, non_empty=True, x1=0, y1=0, x2=1920, y2=1080) LEN: 6
+BOUNDS: (True, non_empty=True, x1=346, y1=214, x2=1201, y2=636) LEN: 6
