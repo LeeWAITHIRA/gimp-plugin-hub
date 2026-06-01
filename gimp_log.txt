@@ -15,51 +15,23 @@ Failed to execute child process (No such file or directory)
 [plug-in-gimp-gen-fill] Override method set_i18n() for the plug-in to customize or disable localization.
 [plug-in-gimp-gen-fill] Localization disabled
 Traceback (most recent call last):
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 176, in on_generate
+  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 177, in on_generate
     bounds = get_selection_bounds(image)
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 29, in get_selection_bounds
-    exists, x1, y1, x2, y2 = image.get_selection_bounds()
-                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'Image' object has no attribute 'get_selection_bounds'
+  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 30, in get_selection_bounds
+    exists, x1, y1, x2, y2 = selection.bounds(image)
+    ^^^^^^^^^^^^^^^^^^^^^^
+ValueError: too many values to unpack (expected 5)
 Traceback (most recent call last):
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 176, in on_generate
+  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 177, in on_generate
     bounds = get_selection_bounds(image)
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 29, in get_selection_bounds
-    exists, x1, y1, x2, y2 = image.get_selection_bounds()
-                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'Image' object has no attribute 'get_selection_bounds'
+  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 30, in get_selection_bounds
+    exists, x1, y1, x2, y2 = selection.bounds(image)
+    ^^^^^^^^^^^^^^^^^^^^^^
+ValueError: too many values to unpack (expected 5)
 Traceback (most recent call last):
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 176, in on_generate
+  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 177, in on_generate
     bounds = get_selection_bounds(image)
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 29, in get_selection_bounds
-    exists, x1, y1, x2, y2 = image.get_selection_bounds()
-                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'Image' object has no attribute 'get_selection_bounds'
-Traceback (most recent call last):
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 176, in on_generate
-    bounds = get_selection_bounds(image)
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 29, in get_selection_bounds
-    exists, x1, y1, x2, y2 = image.get_selection_bounds()
-                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'Image' object has no attribute 'get_selection_bounds'
-Traceback (most recent call last):
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 176, in on_generate
-    bounds = get_selection_bounds(image)
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 29, in get_selection_bounds
-    exists, x1, y1, x2, y2 = image.get_selection_bounds()
-                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'Image' object has no attribute 'get_selection_bounds'
-Traceback (most recent call last):
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 176, in on_generate
-    bounds = get_selection_bounds(image)
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 29, in get_selection_bounds
-    exists, x1, y1, x2, y2 = image.get_selection_bounds()
-                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'Image' object has no attribute 'get_selection_bounds'
-Traceback (most recent call last):
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 176, in on_generate
-    bounds = get_selection_bounds(image)
-  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 29, in get_selection_bounds
-    exists, x1, y1, x2, y2 = image.get_selection_bounds()
-                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'Image' object has no attribute 'get_selection_bounds'
+  File "C:\Users\lee2\AppData\Roaming\GIMP\3.2\plug-ins\gimp_gen_fill\gimp_gen_fill.py", line 30, in get_selection_bounds
+    exists, x1, y1, x2, y2 = selection.bounds(image)
+    ^^^^^^^^^^^^^^^^^^^^^^
+ValueError: too many values to unpack (expected 5)
